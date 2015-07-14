@@ -1,4 +1,4 @@
-# Databricks notebook source exported at Thu, 9 Jul 2015 05:56:58 UTC
+# Databricks notebook source exported at Tue, 14 Jul 2015 07:30:47 UTC
 # MAGIC %md
 # MAGIC ![ML Logo](http://spark-mooc.github.io/web-assets/images/CS190.1x_Banner_300.png)
 # MAGIC # **Linear Regression Lab**
@@ -165,9 +165,9 @@ pass
 
 # TODO: Replace <FILL IN> with appropriate code
 parsedDataInit = rawData.map(parsePoint)
-onlyLabels = parsedDataInit.map(lambda label: parsePoint.label)
-minYear = min(onlyLabels)
-maxYear = max(onlyLabels)
+onlyLabels = parsedDataInit.map(lambda lp: lp.label)
+minYear = onlyLabels.min()
+maxYear = onlyLabels.max()
 print maxYear, minYear
 
 # COMMAND ----------
@@ -189,7 +189,7 @@ Test.assertTrue(yearRange == 89, 'incorrect range for minYear to maxYear')
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-parsedData = parsedDataInit.<FILL IN>
+parsedData = parsedDataInit.map(lambda lp: LabeledPoint(lp.label - minYear,lp.features))
 
 # Should be a LabeledPoint
 print type(parsedData.take(1)[0])
@@ -259,13 +259,13 @@ pass
 # TODO: Replace <FILL IN> with appropriate code
 weights = [.8, .1, .1]
 seed = 42
-parsedTrainData, parsedValData, parsedTestData = parsedData.<FILL IN>
-parsedTrainData.<FILL IN>
-parsedValData.<FILL IN>
-parsedTestData.<FILL IN>
-nTrain = parsedTrainData.<FILL IN>
-nVal = parsedValData.<FILL IN>
-nTest = parsedTestData.<FILL IN>
+parsedTrainData, parsedValData, parsedTestData = parsedData.randomSplit(weights, seed)
+parsedTrainData.cache()
+parsedValData.cache()
+parsedTestData.cache()
+nTrain = parsedTrainData.count()
+nVal = parsedValData.count()
+nTest = parsedTestData.count()
 
 print nTrain, nVal, nTest, nTrain + nVal + nTest
 print parsedData.count()
@@ -312,8 +312,8 @@ Test.assertEquals(nTest, 671, 'unexpected value for nTest')
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-averageTrainYear = (parsedTrainData
-                    <FILL IN>)
+averageTrainYear = parsedTrainData.map(lambda lp: lp.label).mean()
+                 	
 print averageTrainYear
 
 # COMMAND ----------
@@ -341,7 +341,7 @@ def squaredError(label, prediction):
     Returns:
         float: The difference between the `label` and `prediction` squared.
     """
-    <FILL IN>
+    return (label - prediction)**2
 
 def calcRMSE(labelsAndPreds):
     """Calculates the root mean squared error for an `RDD` of (label, prediction) tuples.
@@ -352,7 +352,7 @@ def calcRMSE(labelsAndPreds):
     Returns:
         float: The square root of the mean of the squared errors.
     """
-    <FILL IN>
+    return np.sqrt(labelsAndPreds.map(lambda (x1, x2) :squaredError(x1, x2)).mean())
 
 labelsAndPreds = sc.parallelize([(3., 1.), (1., 2.), (2., 2.)])
 # RMSE = sqrt[((3-1)^2 + (1-2)^2 + (2-2)^2) / 3] = 1.291
@@ -374,14 +374,15 @@ Test.assertTrue(np.allclose(exampleRMSE, 1.29099444874), 'incorrect value for ex
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-labelsAndPredsTrain = parsedTrainData.<FILL IN>
-rmseTrainBase = <FILL IN>
+labelsAndPredsTrain = parsedTrainData.map(lambda x: (x.label, averageTrainYear))
+#print labelsAndPredsTrain
+rmseTrainBase = calcRMSE(labelsAndPredsTrain)
 
-labelsAndPredsVal = parsedValData.<FILL IN>
-rmseValBase = <FILL IN>
+labelsAndPredsVal = parsedValData.map(lambda x: (x.label, averageTrainYear))
+rmseValBase = calcRMSE(labelsAndPredsVal)
 
-labelsAndPredsTest = parsedTestData.<FILL IN>
-rmseTestBase = <FILL IN>
+labelsAndPredsTest = parsedTestData.map(lambda x: (x.label, averageTrainYear))
+rmseTestBase = calcRMSE(labelsAndPredsTest)
 
 print 'Baseline Train RMSE = {0:.3f}'.format(rmseTrainBase)
 print 'Baseline Validation RMSE = {0:.3f}'.format(rmseValBase)
@@ -473,7 +474,7 @@ def gradientSummand(weights, lp):
     Returns:
         DenseVector: An array of values the same length as `weights`.  The gradient summand.
     """
-    <FILL IN>
+    return (weights.dot(lp.features) - lp.label) * lp.features
 
 exampleW = DenseVector([1, 1, 1])
 exampleLP = LabeledPoint(2.0, [3, 1, 4])
@@ -516,7 +517,7 @@ def getLabeledPrediction(weights, observation):
     Returns:
         RDD of tuple: An RDD containing (label, prediction) tuples.
     """
-    return <FILL IN>
+    return (observation.label, weights.dot(observation.features))
 
 weights = np.array([1.0, 1.5])
 predictionExample = sc.parallelize([LabeledPoint(2, np.array([1.0, .5])),
@@ -567,16 +568,16 @@ def linregGradientDescent(trainData, numIters):
         # Use getLabeledPrediction from (3b) with trainData to obtain an RDD of (label, prediction)
         # tuples.  Note that the weights all equal 0 for the first iteration, so the predictions will
         # have large errors to start.
-        labelsAndPredsTrain = trainData.<FILL IN>
+        labelsAndPredsTrain = trainData.map(lambda lp: getLabeledPrediction(w, lp))
         errorTrain[i] = calcRMSE(labelsAndPredsTrain)
 
         # Calculate the `gradient`.  Make use of the `gradientSummand` function you wrote in (3a).
         # Note that `gradient` sould be a `DenseVector` of length `d`.
-        gradient = <FILL IN>
+        gradient = trainData.map(lambda lp: gradientSummand(w, lp)).sum()
 
         # Update the weights
         alpha_i = alpha / (n * np.sqrt(i+1))
-        w -= <FILL IN>
+        w -= alpha_i * gradient
     return w, errorTrain
 
 # create a toy dataset with n = 10, d = 3, and then run 5 iterations of gradient descent
@@ -612,9 +613,9 @@ Test.assertTrue(np.allclose(exampleErrorTrain, expectedError),
 
 # TODO: Replace <FILL IN> with appropriate code
 numIters = 50
-weightsLR0, errorTrainLR0 = linregGradientDescent(<FILL IN>)
+weightsLR0, errorTrainLR0 = linregGradientDescent(parsedTrainData, numIters)
 
-labelsAndPreds = parsedValData.<FILL IN>
+labelsAndPreds = parsedValData.map(lambda lp: getLabeledPrediction(weightsLR0, lp))
 rmseValLR0 = calcRMSE(labelsAndPreds)
 
 print 'Validation RMSE:\n\tBaseline = {0:.3f}\n\tLR0 = {1:.3f}'.format(rmseValBase,
@@ -683,11 +684,11 @@ useIntercept = True  # intercept
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-firstModel = LinearRegressionWithSGD.<FILL IN>
+firstModel = LinearRegressionWithSGD.train(parsedTrainData, iterations=numIters, step=alpha, miniBatchFraction=miniBatchFrac, initialWeights=None, regParam=reg, regType=regType, intercept=useIntercept)
 
 # weightsLR1 stores the model weights; interceptLR1 stores the model intercept
-weightsLR1 = <FILL IN>
-interceptLR1 = <FILL IN>
+weightsLR1 = firstModel.weights
+interceptLR1 = firstModel.intercept
 print weightsLR1, interceptLR1
 
 # COMMAND ----------
@@ -709,7 +710,7 @@ Test.assertTrue(np.allclose(weightsLR1, expectedWeights), 'incorrect value for w
 
 # TODO: Replace <FILL IN> with appropriate code
 samplePoint = parsedTrainData.take(1)[0]
-samplePrediction = <FILL IN>
+samplePrediction = firstModel.predict(samplePoint.features)
 print samplePrediction
 
 # COMMAND ----------
@@ -727,8 +728,8 @@ Test.assertTrue(np.allclose(samplePrediction, 56.8013380112),
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-labelsAndPreds = <FILL IN>
-rmseValLR1 = <FILL IN>
+labelsAndPreds = parsedValData.map(lambda lp: (lp.label, firstModel.predict(lp.features)))
+rmseValLR1 = calcRMSE(labelsAndPreds)
 
 print ('Validation RMSE:\n\tBaseline = {0:.3f}\n\tLR0 = {1:.3f}' +
        '\n\tLR1 = {2:.3f}').format(rmseValBase, rmseValLR0, rmseValLR1)
@@ -754,7 +755,7 @@ bestModel = firstModel
 numIters = 500
 alpha = 1.0
 miniBatchFrac = 1.0
-for reg in <FILL IN>:
+for reg in [1e-10, 1e-5, 1]:
     model = LinearRegressionWithSGD.train(parsedTrainData, numIters, alpha,
                                           miniBatchFrac, regParam=reg,
                                           regType='l2', intercept=True)
@@ -819,8 +820,8 @@ pass
 reg = bestRegParam
 modelRMSEs = []
 
-for alpha in <FILL IN>:
-    for numIters in <FILL IN>:
+for alpha in [1e-5, 10]:
+    for numIters in [5, 500]:
         model = LinearRegressionWithSGD.train(parsedTrainData, numIters, alpha,
                                               miniBatchFrac, regParam=reg,
                                               regType='l2', intercept=True)
@@ -919,14 +920,15 @@ def twoWayInteractions(lp):
         LabeledPoint: The new `LabeledPoint` should have the same label as `lp`.  Its features
             should include the features from `lp` followed by the two-way interaction features.
     """
-    <FILL IN>
+    cartesianProduct = np.hstack(itertools.product(lp.features, lp.features))
+    return (lp.label, cartesianProduct)
 
 print twoWayInteractions(LabeledPoint(0.0, [2, 3]))
 
 # Transform the existing train, validation, and test sets to include two-way interactions.
-trainDataInteract = <FILL IN>
-valDataInteract = <FILL IN>
-testDataInteract = <FILL IN>
+trainDataInteract = parsedTrainData.map(lambda lp: twoWayInteractions(lp))
+valDataInteract = parsedValData.map(lambda lp: twoWayInteractions(lp))
+testDataInteract = parsedTestData.map(lambda lp: twoWayInteractions(lp))
 
 # COMMAND ----------
 
@@ -962,10 +964,10 @@ alpha = 1.0
 miniBatchFrac = 1.0
 reg = 1e-10
 
-modelInteract = LinearRegressionWithSGD.train(<FILL IN>, numIters, alpha,
+modelInteract = LinearRegressionWithSGD.train(trainDataInteract, numIters, alpha,
                                               miniBatchFrac, regParam=reg,
                                               regType='l2', intercept=True)
-labelsAndPredsInteract = <FILL IN>.map(lambda lp: (lp.label, <FILL IN>.predict(lp.features)))
+labelsAndPredsInteract = valDataInteract.map(lambda lp: (lp.label, modelInteract.predict(lp.features)))
 rmseValInteract = calcRMSE(labelsAndPredsInteract)
 
 print ('Validation RMSE:\n\tBaseline = {0:.3f}\n\tLR0 = {1:.3f}\n\tLR1 = {2:.3f}\n\tLRGrid = ' +
