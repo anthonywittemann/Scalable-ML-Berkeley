@@ -1,4 +1,4 @@
-# Databricks notebook source exported at Tue, 14 Jul 2015 07:30:47 UTC
+# Databricks notebook source exported at Tue, 14 Jul 2015 21:56:17 UTC
 # MAGIC %md
 # MAGIC ![ML Logo](http://spark-mooc.github.io/web-assets/images/CS190.1x_Banner_300.png)
 # MAGIC # **Linear Regression Lab**
@@ -920,8 +920,16 @@ def twoWayInteractions(lp):
         LabeledPoint: The new `LabeledPoint` should have the same label as `lp`.  Its features
             should include the features from `lp` followed by the two-way interaction features.
     """
-    cartesianProduct = np.hstack(itertools.product(lp.features, lp.features))
-    return (lp.label, cartesianProduct)
+    cProd = []
+    for feature in lp.features: # add all the features to cartesian product
+      cProd.append(feature)
+    
+    for x in lp.features: # add all the combinations of features to cProd
+      for y in lp.features:
+        cProd.append(x * y)
+    
+    cartesianProduct = np.hstack(cProd) #itertools.product(lp.features, np.transpose(lp.features))
+    return LabeledPoint(lp.label, cartesianProduct)
 
 print twoWayInteractions(LabeledPoint(0.0, [2, 3]))
 
@@ -989,8 +997,8 @@ Test.assertTrue(np.allclose(rmseValInteract, 15.6894664683), 'incorrect value fo
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-labelsAndPredsTest = <FILL IN>
-rmseTestInteract = <FILL IN>
+labelsAndPredsTest = testDataInteract.map(lambda lp: (lp.label, modelInteract.predict(lp.features)))
+rmseTestInteract = calcRMSE(labelsAndPredsTest)
 
 print ('Test RMSE:\n\tBaseline = {0:.3f}\n\tLRInteract = {1:.3f}'
        .format(rmseTestBase, rmseTestInteract))
