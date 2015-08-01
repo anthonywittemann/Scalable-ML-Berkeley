@@ -1,4 +1,4 @@
-# Databricks notebook source exported at Sat, 1 Aug 2015 20:18:20 UTC
+# Databricks notebook source exported at Sat, 1 Aug 2015 22:44:11 UTC
 # MAGIC %md
 # MAGIC ![ML Logo](http://spark-mooc.github.io/web-assets/images/CS190.1x_Banner_300.png)
 # MAGIC # **Principal Component Analysis Lab**
@@ -649,7 +649,8 @@ def parse(line):
             a `tuple` containing two values and the pixel intensity is stored in an NumPy array
             which contains 240 values.
     """
-    <FILL IN>
+    strArray = line.split()
+    return ((int(strArray[0]), int(strArray[1])), np.array(strArray[2:],dtype=float))
 
 rawData = lines.map(parse)
 rawData.cache()
@@ -681,8 +682,8 @@ Test.assertTrue(np.allclose(np.sum(entry[1]), 24683.5), 'incorrect values in ent
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-mn = <FILL IN>
-mx = <FILL IN>
+mn = rawData.map(lambda x: x[1]).map(lambda x: min(x)).reduce(lambda x,y: min(x,y))
+mx = rawData.map(lambda x: x[1]).map(lambda x: max(x)).reduce(lambda x,y: max(x,y))
 
 print mn, mx
 
@@ -731,7 +732,10 @@ def rescale(ts):
     Returns:
         np.ndarray: The times series adjusted by subtracting the mean and dividing by the mean.
     """
-    <FILL IN>
+    mean = np.mean(ts)
+    normalizedTS = ts - mean
+    normalizedTS = normalizedTS / mean
+    return normalizedTS
 
 scaledData = rawData.mapValues(lambda v: rescale(v))
 mnScaled = scaledData.map(lambda (k, v): v).map(lambda v: min(v)).min()
@@ -775,7 +779,7 @@ pass
 
 # TODO: Replace <FILL IN> with appropriate code
 # Run pca using scaledData
-componentsScaled, scaledScores, eigenvaluesScaled = <FILL IN>
+componentsScaled, scaledScores, eigenvaluesScaled = pca(scaledData.map(lambda x:x[1]), k=3)
 
 # COMMAND ----------
 
@@ -926,26 +930,26 @@ vector = np.array([0., 1., 2., 3., 4., 5.])
 # a two element array where the first element is the sum of the 0, 2, and 4 indexed elements of
 # vector and the second element is the sum of the 1, 3, and 5 indexed elements of vector.
 # This should be a 2 row by 6 column array
-sumEveryOther = np.array(<FILL IN>)
+sumEveryOther = np.array([  [1,0,1,0,1,0], [0,1,0,1,0,1]  ])
 
 # Create a multi-dimensional array that when multiplied (using .dot) against vector, results in a
 # three element array where the first element is the sum of the 0 and 3 indexed elements of vector,
 # the second element is the sum of the 1 and 4 indexed elements of vector, and the third element is
 # the sum of the 2 and 5 indexed elements of vector.
 # This should be a 3 row by 6 column array
-sumEveryThird = np.array(<FILL IN>)
+sumEveryThird = np.array([  [1,0,0,1,0,0], [0,1,0,0,1,0], [0,0,1,0,0,1]  ])
 
 # Create a multi-dimensional array that can be used to sum the first three elements of vector and
 # the last three elements of vector, which returns a two element array with those values when dotted
 # with vector.
 # This should be a 2 row by 6 column array
-sumByThree = np.array(<FILL IN>)
+sumByThree = np.array([  [1,1,1,0,0,0], [0,0,0,1,1,1]  ])
 
 # Create a multi-dimensional array that sums the first two elements, second two elements, and
 # last two elements of vector, which returns a three element array with those values when dotted
 # with vector.
 # This should be a 3 row by 6 column array
-sumByTwo = np.array(<FILL IN>)
+sumByTwo = np.array([  [1,1,0,0,0,0], [0,0,1,1,0,0], [0,0,0,0,1,1]  ])
 
 print 'sumEveryOther.dot(vector):\t{0}'.format(sumEveryOther.dot(vector))
 print 'sumEveryThird.dot(vector):\t{0}'.format(sumEveryThird.dot(vector))
@@ -986,8 +990,8 @@ print '\nsumEveryThird: \n{0}'.format(sumEveryThird)
 
 # TODO: Replace <FILL IN> with appropriate code
 # Use np.tile and np.eye to recreate the arrays
-sumEveryOtherTile = <FILL IN>
-sumEveryThirdTile = <FILL IN>
+sumEveryOtherTile = np.tile(np.eye(2), 3)
+sumEveryThirdTile = np.tile(np.eye(3), 2)
 
 print sumEveryOtherTile
 print 'sumEveryOtherTile.dot(vector): {0}'.format(sumEveryOtherTile.dot(vector))
@@ -1024,8 +1028,8 @@ print '\nsumByTwo: \n{0}'.format(sumByTwo)
 
 # TODO: Replace <FILL IN> with appropriate code
 # Use np.kron, np.eye, and np.ones to recreate the arrays
-sumByThreeKron = <FILL IN>
-sumByTwoKron = <FILL IN>
+sumByThreeKron = np.kron(np.eye(2), np.ones(3))
+sumByTwoKron = np.kron(np.eye(3), np.ones(2))
 
 print sumByThreeKron
 print 'sumByThreeKron.dot(vector): {0}'.format(sumByThreeKron.dot(vector))
@@ -1053,10 +1057,10 @@ Test.assertTrue(np.allclose(sumByTwoKron.dot(vector), [1, 5, 9]),
 
 # TODO: Replace <FILL IN> with appropriate code
 # Create a multi-dimensional array to perform the aggregation
-T = <FILL IN>
+T = np.tile(np.eye(20), 12)
 
 # Transform scaledData using T.  Make sure to retain the keys.
-timeData = scaledData.<FILL IN>
+timeData = scaledData.map(lambda x: (x[0], T.dot(x[1])))
 
 timeData.cache()
 print timeData.count()
@@ -1085,7 +1089,7 @@ Test.assertTrue(np.allclose(timeDataFifth[-2:],[-0.00636676, -0.0179427]),
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-componentsTime, timeScores, eigenvaluesTime = <FILL IN>
+componentsTime, timeScores, eigenvaluesTime = pca(timeData.map(lambda x: x[1]), k = 3)
 
 print 'componentsTime: (first five) \n{0}'.format(componentsTime[:5,:])
 print ('\ntimeScores (first three): \n{0}'
@@ -1136,10 +1140,10 @@ pass
 
 # TODO: Replace <FILL IN> with appropriate code
 # Create a multi-dimensional array to perform the aggregation
-D = <FILL IN>
+D = np.kron(np.eye(12), np.ones(20))
 
 # Transform scaledData using D.  Make sure to retain the keys.
-directionData = scaledData.<FILL IN>
+directionData = scaledData.map(lambda x: (x[0], D.dot(x[1])))
 
 directionData.cache()
 print directionData.count()
@@ -1168,7 +1172,7 @@ Test.assertTrue(np.allclose(directionDataFifth[:2], [ 0.01479147, -0.02090099]),
 # COMMAND ----------
 
 # TODO: Replace <FILL IN> with appropriate code
-componentsDirection, directionScores, eigenvaluesDirection = <FILL IN>
+componentsDirection, directionScores, eigenvaluesDirection = pca(directionData.map(lambda x: x[1]), k=3)
 
 print 'componentsDirection: (first five) \n{0}'.format(componentsDirection[:5,:])
 print ('\ndirectionScores (first three): \n{0}'
